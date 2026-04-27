@@ -4,7 +4,34 @@ on:
     branches: [main]
 
 jobs:
+  wait-for-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for quonfig on RubyGems
+        run: |
+          # Read the floor version from the gemspec's runtime quonfig dep.
+          # Avoids loading the gemspec (which requires a ruby setup) by
+          # parsing the add_runtime_dependency line directly.
+          required=$(grep -E "add_runtime_dependency.*['\"]quonfig['\"]" quonfig-openfeature.gemspec \
+            | sed -E "s/.*,[[:space:]]*['\"][>=<^~ ]*([0-9.]+)['\"].*/\1/")
+          if [ -z "$required" ]; then
+            echo "Could not determine required quonfig version from gemspec" >&2
+            exit 1
+          fi
+          echo "Waiting for quonfig $required on RubyGems..."
+          for i in $(seq 1 60); do
+            if curl -sfI "https://rubygems.org/api/v2/rubygems/quonfig/versions/${required}.json" >/dev/null; then
+              echo "Found quonfig $required after ${i} polls"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for quonfig $required after 10 minutes" >&2
+          exit 1
+
   test:
+    needs: wait-for-sdk
     uses: ./.github/workflows/ci.yml
 
   check-version:
