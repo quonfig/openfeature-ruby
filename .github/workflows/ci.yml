@@ -19,6 +19,11 @@ jobs:
           repository: quonfig/sdk-ruby
           path: sdk-ruby
 
+      - uses: actions/checkout@v4
+        with:
+          repository: quonfig/integration-test-data
+          path: integration-test-data
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'

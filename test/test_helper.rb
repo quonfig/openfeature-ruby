@@ -11,12 +11,25 @@ end
 require 'quonfig/openfeature'
 
 module QuonfigOFTestHelpers
-  FIXTURES_DIR = File.expand_path('fixtures', __dir__)
+  # Shared fixtures from the quonfig/integration-test-data sibling repo.
+  # CI clones it alongside this repo at the same level. Locally it's expected
+  # to live at ../../integration-test-data relative to the openfeature-ruby
+  # checkout (i.e. as a sibling under the monorepo root).
+  INTEGRATION_FIXTURES_DIR =
+    if (env = ENV['QUONFIG_INTEGRATION_TEST_DATA_DIR']) && !env.empty?
+      env
+    else
+      [
+        File.expand_path('../../integration-test-data/data/integration-tests', __dir__),
+        File.expand_path('../../../integration-test-data/data/integration-tests', __dir__)
+      ].find { |p| Dir.exist?(p) } ||
+        File.expand_path('../../integration-test-data/data/integration-tests', __dir__)
+    end
 
   module_function
 
   def fixtures_dir
-    FIXTURES_DIR
+    INTEGRATION_FIXTURES_DIR
   end
 
   def build_provider(**overrides)

@@ -27,7 +27,7 @@ class TestProvider < Minitest::Test
   def test_fetch_boolean_returns_provider_not_ready_before_init
     p = build_provider
     assert_nil p.client
-    details = p.fetch_boolean_value(flag_key: 'my-flag', default_value: false)
+    details = p.fetch_boolean_value(flag_key: 'always.true', default_value: false)
     assert_equal false, details.value
     assert_equal Reason::ERROR, details.reason
     assert_equal ErrorCode::PROVIDER_NOT_READY, details.error_code
@@ -35,14 +35,14 @@ class TestProvider < Minitest::Test
 
   def test_fetch_string_returns_provider_not_ready_before_init
     p = build_provider
-    details = p.fetch_string_value(flag_key: 'my-string', default_value: 'fallback')
+    details = p.fetch_string_value(flag_key: 'brand.new.string', default_value: 'fallback')
     assert_equal 'fallback', details.value
     assert_equal ErrorCode::PROVIDER_NOT_READY, details.error_code
   end
 
   def test_fetch_object_returns_provider_not_ready_before_init
     p = build_provider
-    details = p.fetch_object_value(flag_key: 'my-list', default_value: [])
+    details = p.fetch_object_value(flag_key: 'my-string-list-key', default_value: [])
     assert_equal [], details.value
     assert_equal ErrorCode::PROVIDER_NOT_READY, details.error_code
   end
@@ -54,7 +54,7 @@ class TestProvider < Minitest::Test
     refute_nil p.client
     p.shutdown
     assert_nil p.client
-    details = p.fetch_boolean_value(flag_key: 'my-flag', default_value: false)
+    details = p.fetch_boolean_value(flag_key: 'always.true', default_value: false)
     assert_equal ErrorCode::PROVIDER_NOT_READY, details.error_code
   end
 

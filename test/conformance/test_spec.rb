@@ -3,6 +3,8 @@
 # OpenFeature spec conformance tests — real provider, datadir fixture, no mocks.
 # Tests call provider fetch_*_value methods directly after manual init,
 # validating the OF spec contract without depending on the SDK singleton.
+# Backed by shared quonfig/integration-test-data fixtures (always.true,
+# of.targeting, of.weighted, brand.new.*, my-string-list-key).
 # References: https://openfeature.dev/specification/sections/providers
 require 'test_helper'
 
@@ -108,14 +110,44 @@ class TestSpec < Minitest::Test
   # 2.7 — Resolution reasons
   # -------------------------------------------------------------------------
 
-  def test_2_7_targeting_match_for_found_boolean
-    details = @provider.fetch_boolean_value(flag_key: 'my-flag', default_value: false)
-    assert_equal Reason::TARGETING_MATCH, details.reason
+  def test_2_7_static_reason_for_always_true_flag
+    # always.true has only ALWAYS_TRUE criteria => STATIC.
+    details = @provider.fetch_boolean_value(flag_key: 'always.true', default_value: false)
+    assert_equal Reason::STATIC, details.reason
+    assert_equal true, details.value
   end
 
-  def test_2_7_targeting_match_for_found_string
-    details = @provider.fetch_string_value(flag_key: 'my-string', default_value: '')
+  def test_2_7_static_reason_for_brand_new_string
+    details = @provider.fetch_string_value(flag_key: 'brand.new.string', default_value: '')
+    assert_equal Reason::STATIC, details.reason
+  end
+
+  def test_2_7_targeting_match_reason_for_pro_user
+    # of.targeting has property-match rules => TARGETING_MATCH.
+    ctx = EvalCtx.new('user.plan' => 'pro')
+    details = @provider.fetch_boolean_value(flag_key: 'of.targeting', default_value: false,
+                                            evaluation_context: ctx)
     assert_equal Reason::TARGETING_MATCH, details.reason
+    assert_equal true, details.value
+  end
+
+  def test_2_7_targeting_match_reason_when_falling_through_to_always_true
+    # Even when the ALWAYS_TRUE fallback wins, the *config* has targeting
+    # rules, so the reason is still TARGETING_MATCH.
+    ctx = EvalCtx.new('user.plan' => 'free')
+    details = @provider.fetch_boolean_value(flag_key: 'of.targeting', default_value: true,
+                                            evaluation_context: ctx)
+    assert_equal Reason::TARGETING_MATCH, details.reason
+    assert_equal false, details.value
+  end
+
+  def test_2_7_split_reason_for_weighted_value
+    # of.weighted picks via weighted_values keyed off user.id.
+    ctx = EvalCtx.new(targeting_key: '92a202f2')
+    details = @provider.fetch_string_value(flag_key: 'of.weighted', default_value: 'sentinel',
+                                           evaluation_context: ctx)
+    assert_equal Reason::SPLIT, details.reason
+    assert_includes %w[variant-a variant-b], details.value
   end
 
   def test_2_7_error_reason_for_missing_flag
@@ -129,37 +161,37 @@ class TestSpec < Minitest::Test
 
   def test_2_4_resolves_boolean_flag
     assert_equal true,
-                 @provider.fetch_boolean_value(flag_key: 'my-flag', default_value: false).value
+                 @provider.fetch_boolean_value(flag_key: 'always.true', default_value: false).value
   end
 
   def test_2_4_resolves_string_config
-    assert_equal 'hello',
-                 @provider.fetch_string_value(flag_key: 'my-string', default_value: '').value
+    assert_equal 'hello.world',
+                 @provider.fetch_string_value(flag_key: 'brand.new.string', default_value: '').value
   end
 
   def test_2_4_resolves_integer_config
-    assert_equal 42,
-                 @provider.fetch_integer_value(flag_key: 'my-int', default_value: 0).value
+    assert_equal 123,
+                 @provider.fetch_integer_value(flag_key: 'brand.new.int', default_value: 0).value
   end
 
   def test_2_4_resolves_float_config
-    assert_in_delta 3.14,
-                    @provider.fetch_float_value(flag_key: 'my-float', default_value: 0.0).value, 1e-9
+    assert_in_delta 123.99,
+                    @provider.fetch_float_value(flag_key: 'brand.new.double', default_value: 0.0).value, 1e-9
   end
 
   def test_2_4_resolves_number_config_via_int
-    assert_equal 42,
-                 @provider.fetch_number_value(flag_key: 'my-int', default_value: 0).value
+    assert_equal 123,
+                 @provider.fetch_number_value(flag_key: 'brand.new.int', default_value: 0).value
   end
 
   def test_2_4_resolves_string_list_via_object
     assert_equal %w[a b c],
-                 @provider.fetch_object_value(flag_key: 'my-list', default_value: []).value
+                 @provider.fetch_object_value(flag_key: 'my-string-list-key', default_value: []).value
   end
 
   def test_2_4_resolves_json_object_via_object
-    assert_equal({ 'foo' => 'bar' },
-                 @provider.fetch_object_value(flag_key: 'my-json', default_value: {}).value)
+    assert_equal({ 'key' => 'value' },
+                 @provider.fetch_object_value(flag_key: 'brand.new.json', default_value: {}).value)
   end
 
   # -------------------------------------------------------------------------
@@ -168,21 +200,21 @@ class TestSpec < Minitest::Test
 
   def test_3_2_dot_notation_routes_pro_to_true
     ctx = EvalCtx.new('user.plan' => 'pro')
-    details = @provider.fetch_boolean_value(flag_key: 'plan-flag', default_value: false,
+    details = @provider.fetch_boolean_value(flag_key: 'of.targeting', default_value: false,
                                             evaluation_context: ctx)
     assert_equal true, details.value
   end
 
   def test_3_2_dot_notation_routes_free_to_false
     ctx = EvalCtx.new('user.plan' => 'free')
-    details = @provider.fetch_boolean_value(flag_key: 'plan-flag', default_value: true,
+    details = @provider.fetch_boolean_value(flag_key: 'of.targeting', default_value: true,
                                             evaluation_context: ctx)
     assert_equal false, details.value
   end
 
   def test_3_2_targeting_key_does_not_break_evaluation
     ctx = EvalCtx.new(targeting_key: 'user-123', 'user.plan' => 'pro')
-    details = @provider.fetch_boolean_value(flag_key: 'plan-flag', default_value: false,
+    details = @provider.fetch_boolean_value(flag_key: 'of.targeting', default_value: false,
                                             evaluation_context: ctx)
     assert_equal true, details.value
   end

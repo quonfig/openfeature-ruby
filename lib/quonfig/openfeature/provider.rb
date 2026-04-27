@@ -97,27 +97,13 @@ module Quonfig
 
       def fetch_boolean_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = client.get_bool(flag_key, default: nil, context: mapped_ctx)
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(client.get_bool_details(flag_key, context: mapped_ctx), default_value)
         end
       end
 
       def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = client.get_string(flag_key, default: nil, context: mapped_ctx)
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(client.get_string_details(flag_key, context: mapped_ctx), default_value)
         end
       end
 
@@ -126,75 +112,80 @@ module Quonfig
         # first, fall back to float so we transparently handle both Quonfig
         # int and double configs.
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = nil
-          begin
-            value = client.get_int(flag_key, default: nil, context: mapped_ctx)
-          rescue ::Quonfig::Errors::TypeMismatchError
-            value = client.get_float(flag_key, default: nil, context: mapped_ctx)
+          details = client.get_int_details(flag_key, context: mapped_ctx)
+          if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+            details = client.get_float_details(flag_key, context: mapped_ctx)
           end
-
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(details, default_value)
         end
       end
 
       def fetch_integer_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = client.get_int(flag_key, default: nil, context: mapped_ctx)
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(client.get_int_details(flag_key, context: mapped_ctx), default_value)
         end
       end
 
       def fetch_float_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = client.get_float(flag_key, default: nil, context: mapped_ctx)
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(client.get_float_details(flag_key, context: mapped_ctx), default_value)
         end
       end
 
-      # Object resolution tries +get_string_list+ first (so Quonfig
+      # Object resolution tries +get_string_list_details+ first (so Quonfig
       # +string_list+ configs surface as native arrays), then falls back to
-      # +get_json+ for any other JSON-shaped config.
+      # +get_json_details+ for any other JSON-shaped config.
       def fetch_object_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          value = nil
-          begin
-            value = client.get_string_list(flag_key, default: nil, context: mapped_ctx)
-          rescue ::Quonfig::Errors::TypeMismatchError
-            value = nil
+          details = client.get_string_list_details(flag_key, context: mapped_ctx)
+          if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+            details = client.get_json_details(flag_key, context: mapped_ctx)
           end
-          if value.nil?
-            value = client.get_json(flag_key, default: nil, context: mapped_ctx)
-          end
-
-          if value.nil?
-            ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                                  error_code: ErrorCode::FLAG_NOT_FOUND,
-                                  error_message: "flag not found: #{flag_key}")
-          else
-            ResolutionDetails.new(value: value, reason: Reason::TARGETING_MATCH)
-          end
+          to_resolution(details, default_value)
         end
       end
 
       private
+
+      # Map a Quonfig::EvaluationDetails to the OpenFeature ResolutionDetails
+      # the SDK consumes. The Quonfig SDK's *_details methods don't raise, so
+      # this is a pure mapping layer.
+      def to_resolution(details, default_value)
+        case details.reason
+        when ::Quonfig::EvaluationDetails::REASON_STATIC
+          ResolutionDetails.new(value: details.value, reason: Reason::STATIC)
+        when ::Quonfig::EvaluationDetails::REASON_TARGETING_MATCH
+          ResolutionDetails.new(value: details.value, reason: Reason::TARGETING_MATCH)
+        when ::Quonfig::EvaluationDetails::REASON_SPLIT
+          ResolutionDetails.new(value: details.value, reason: Reason::SPLIT)
+        when ::Quonfig::EvaluationDetails::REASON_DEFAULT
+          ResolutionDetails.new(value: default_value, reason: Reason::DEFAULT)
+        when ::Quonfig::EvaluationDetails::REASON_ERROR
+          ResolutionDetails.new(
+            value: default_value,
+            reason: Reason::ERROR,
+            error_code: map_error_code(details.error_code),
+            error_message: details.error_message
+          )
+        else
+          # Defensive default: surface as ERROR so unknown reasons don't
+          # silently leak the SDK value back.
+          ResolutionDetails.new(
+            value: default_value,
+            reason: Reason::ERROR,
+            error_code: ErrorCode::GENERAL,
+            error_message: "unknown reason: #{details.reason.inspect}"
+          )
+        end
+      end
+
+      def map_error_code(error_code)
+        case error_code
+        when ::Quonfig::EvaluationDetails::ERROR_FLAG_NOT_FOUND then ErrorCode::FLAG_NOT_FOUND
+        when ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH  then ErrorCode::TYPE_MISMATCH
+        else ErrorCode::GENERAL
+        end
+      end
 
       def evaluate(flag_key, default_value, evaluation_context)
         client = @client
@@ -209,14 +200,6 @@ module Quonfig
 
         mapped_ctx = Context.map_context(evaluation_context, @targeting_key_mapping)
         yield(client, mapped_ctx)
-      rescue ::Quonfig::Errors::MissingDefaultError => e
-        ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                              error_code: ErrorCode::FLAG_NOT_FOUND,
-                              error_message: e.message)
-      rescue ::Quonfig::Errors::TypeMismatchError => e
-        ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
-                              error_code: ErrorCode::TYPE_MISMATCH,
-                              error_message: e.message)
       rescue ::Quonfig::Errors::UninitializedError, ::Quonfig::Errors::InitializationTimeoutError => e
         ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
                               error_code: ErrorCode::PROVIDER_NOT_READY,
