@@ -1,0 +1,19 @@
+{
+  "id": "3",
+  "key": "my-string",
+  "type": "config",
+  "valueType": "string",
+  "sendToClientSdk": true,
+  "default": { "rules": [] },
+  "environments": [
+    {
+      "id": "Production",
+      "rules": [
+        {
+          "criteria": [{ "propertyName": "", "operator": "ALWAYS_TRUE" }],
+          "value": { "type": "string", "value": "hello" }
+        }
+      ]
+    }
+  ]
+}

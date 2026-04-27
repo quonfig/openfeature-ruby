@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: openfeature-ruby
+
+      - uses: actions/checkout@v4
+        with:
+          repository: quonfig/sdk-ruby
+          path: sdk-ruby
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: false
+          working-directory: openfeature-ruby
+
+      - name: bundle install
+        working-directory: openfeature-ruby
+        run: bundle install
+
+      - name: rake test
+        working-directory: openfeature-ruby
+        run: bundle exec rake test
