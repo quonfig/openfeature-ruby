@@ -31,7 +31,7 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.version-changed == 'true'
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,16 @@ jobs:
         with:
           ruby-version: '3.2'
           bundler-cache: false
-      - name: Build and push gem via trusted publishing
-        uses: rubygems/release-gem@v1
-        with:
-          await-release: true
+
+      # We deliberately skip `bundle install` here. The Gemfile has a path:
+      # dev dependency on the sibling sdk-ruby checkout (used by tests) which
+      # isn't present in the release job. `gem build` only reads the gemspec,
+      # so we go directly through gem.
+      - name: Configure trusted publisher credentials
+        uses: rubygems/configure-rubygems-credentials@main
+
+      - name: Build gem
+        run: gem build quonfig-openfeature.gemspec
+
+      - name: Push gem
+        run: gem push quonfig-openfeature-${{ needs.check-version.outputs.current-version }}.gem
