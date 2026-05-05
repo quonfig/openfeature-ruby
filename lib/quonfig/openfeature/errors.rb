@@ -16,13 +16,9 @@ module Quonfig
         return ErrorCode::GENERAL if err.nil?
 
         # Class-based mapping is the most reliable signal.
-        if defined?(::Quonfig::Errors::MissingDefaultError) && err.is_a?(::Quonfig::Errors::MissingDefaultError)
-          return ErrorCode::FLAG_NOT_FOUND
-        end
+        return ErrorCode::FLAG_NOT_FOUND if defined?(::Quonfig::Errors::MissingDefaultError) && err.is_a?(::Quonfig::Errors::MissingDefaultError)
 
-        if defined?(::Quonfig::Errors::TypeMismatchError) && err.is_a?(::Quonfig::Errors::TypeMismatchError)
-          return ErrorCode::TYPE_MISMATCH
-        end
+        return ErrorCode::TYPE_MISMATCH if defined?(::Quonfig::Errors::TypeMismatchError) && err.is_a?(::Quonfig::Errors::TypeMismatchError)
 
         if (defined?(::Quonfig::Errors::UninitializedError) && err.is_a?(::Quonfig::Errors::UninitializedError)) ||
            (defined?(::Quonfig::Errors::InitializationTimeoutError) && err.is_a?(::Quonfig::Errors::InitializationTimeoutError))
@@ -35,7 +31,7 @@ module Quonfig
                                             msg.include?('no value found') ||
                                             msg.include?('value found for key')
         return ErrorCode::TYPE_MISMATCH if msg.include?('type mismatch') ||
-                                           msg.include?('expected ') && msg.include?('got ')
+                                           (msg.include?('expected ') && msg.include?('got '))
         return ErrorCode::PROVIDER_NOT_READY if msg.include?('not initialized') ||
                                                 msg.include?('provider not ready') ||
                                                 msg.include?("couldn't initialize") ||

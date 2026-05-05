@@ -1,0 +1,82 @@
+AllCops:
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - vendor/**/*
+
+# Complexity / size cops are advisory; mirroring sdk-ruby.
+Metrics:
+  Enabled: false
+
+# Library internals don't need top-level class doc comments — the public API
+# is documented in README.md and the gemspec.
+Style/Documentation:
+  Enabled: false
+
+# Test fixtures use name1, name2, expected1 patterns that mirror the
+# source data rather than camelCase Ruby idioms.
+Naming/VariableNumber:
+  Enabled: false
+
+# Short parameter names like x, y, h, c, k are readable in small helpers.
+Naming/MethodParameterName:
+  Enabled: false
+
+# Hash-only case statements are explicit and readable.
+Style/HashLikeCase:
+  Enabled: false
+
+# Predicate-shaped methods do not always end in ?.
+Naming/PredicateMethod:
+  Enabled: false
+
+# OpenStruct is fine for test doubles in the test suite.
+Style/OpenStructUse:
+  Exclude:
+    - 'test/**/*'
+
+# Long lines in test fixtures (encoded payloads, conformance specs) would
+# be unreadable if wrapped.
+Layout/LineLength:
+  Max: 250
+  Exclude:
+    - 'test/**/*'
+
+# Empty blocks/classes in tests are test doubles / stubs.
+Lint/EmptyBlock:
+  Exclude:
+    - 'test/**/*'
+
+Lint/EmptyClass:
+  Exclude:
+    - 'test/**/*'
+
+# Begin/end with explicit return is used to short-circuit error paths.
+Lint/NoReturnInBeginEndBlocks:
+  Enabled: false
+
+# Branches that look duplicated are often intentional documentation of
+# each matched value.
+Lint/DuplicateBranch:
+  Enabled: false
+
+# Unused keyword arguments are intentional API documentation: they make
+# the function signature explicit even when the implementation does not
+# yet need the value.
+Lint/UnusedMethodArgument:
+  AllowUnusedKeywordArguments: true
+
+Lint/UnusedBlockArgument:
+  AllowUnusedKeywordArguments: true
+
+# Test helper method names sometimes need to mirror upstream framework
+# conventions.
+Naming/MethodName:
+  Exclude:
+    - 'test/**/*'
+
+# Development dependencies are declared in the gemspec for parity with
+# the published gem; moving them to the Gemfile is a stylistic preference
+# we don't share.
+Gemspec/DevelopmentDependencies:
+  Enabled: false

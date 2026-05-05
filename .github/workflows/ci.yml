@@ -34,6 +34,10 @@ jobs:
         working-directory: openfeature-ruby
         run: bundle install
 
+      - name: Rubocop
+        working-directory: openfeature-ruby
+        run: bundle exec rubocop --no-color
+
       - name: rake test
         working-directory: openfeature-ruby
         run: bundle exec rake test

@@ -61,7 +61,7 @@ class TestContext < Minitest::Test
     expected = {
       'user' => { 'id' => 'user-123', 'email' => 'a@example.com' },
       'org' => { 'tier' => 'enterprise' },
-      ''    => { 'country' => 'US' }
+      '' => { 'country' => 'US' }
     }
     assert_equal expected, Context.map_context(ctx)
   end

@@ -89,9 +89,7 @@ module Quonfig
       # Escape hatch: returns the underlying +Quonfig::Client+ for native-only
       # features (keys, raw config, durations, log levels). Returns +nil+ until
       # +init+ has run.
-      def client
-        @client
-      end
+      attr_reader :client
 
       # ---- fetch_*_value -----------------------------------------------------
 
@@ -113,9 +111,7 @@ module Quonfig
         # int and double configs.
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
           details = client.get_int_details(flag_key, context: mapped_ctx)
-          if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
-            details = client.get_float_details(flag_key, context: mapped_ctx)
-          end
+          details = client.get_float_details(flag_key, context: mapped_ctx) if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
           to_resolution(details, default_value)
         end
       end
@@ -138,9 +134,7 @@ module Quonfig
       def fetch_object_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
           details = client.get_string_list_details(flag_key, context: mapped_ctx)
-          if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
-            details = client.get_json_details(flag_key, context: mapped_ctx)
-          end
+          details = client.get_json_details(flag_key, context: mapped_ctx) if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
           to_resolution(details, default_value)
         end
       end
@@ -187,7 +181,7 @@ module Quonfig
         end
       end
 
-      def evaluate(flag_key, default_value, evaluation_context)
+      def evaluate(_flag_key, default_value, evaluation_context)
         client = @client
         if client.nil?
           return ResolutionDetails.new(

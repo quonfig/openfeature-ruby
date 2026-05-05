@@ -16,7 +16,7 @@ module QuonfigOFTestHelpers
   # to live at ../../integration-test-data relative to the openfeature-ruby
   # checkout (i.e. as a sibling under the monorepo root).
   INTEGRATION_FIXTURES_DIR =
-    if (env = ENV['QUONFIG_INTEGRATION_TEST_DATA_DIR']) && !env.empty?
+    if (env = ENV.fetch('QUONFIG_INTEGRATION_TEST_DATA_DIR', nil)) && !env.empty?
       env
     else
       [
