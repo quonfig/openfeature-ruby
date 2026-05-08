@@ -12,8 +12,10 @@ jobs:
         run: |
           # Read the floor version from the gemspec's runtime quonfig dep.
           # Avoids loading the gemspec (which requires a ruby setup) by
-          # parsing the add_runtime_dependency line directly.
-          required=$(grep -E "add_runtime_dependency.*['\"]quonfig['\"]" quonfig-openfeature.gemspec \
+          # parsing the dependency line directly. Matches both
+          # `add_dependency` and `add_runtime_dependency` (Bundler aliases
+          # the two; the gemspec currently uses `add_dependency`).
+          required=$(grep -E "add_(runtime_)?dependency.*['\"]quonfig['\"]" quonfig-openfeature.gemspec \
             | sed -E "s/.*,[[:space:]]*['\"][>=<^~ ]*([0-9.]+)['\"].*/\1/")
           if [ -z "$required" ]; then
             echo "Could not determine required quonfig version from gemspec" >&2
