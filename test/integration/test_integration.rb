@@ -77,4 +77,58 @@ class TestIntegration < Minitest::Test
   def test_client_escape_hatch_exposes_quonfig_client
     assert_kind_of ::Quonfig::Client, @provider.client
   end
+
+  # ---- variant + flag_metadata (qfg-9dbl) ----------------------------
+
+  def test_static_variant_and_flag_metadata
+    details = @client.fetch_boolean_details(flag_key: 'always.true', default_value: false)
+    assert_equal 'static', details.variant
+    md = details.flag_metadata
+    refute_nil md
+    assert_kind_of String, md['config_id']
+    assert_equal 'feature_flag', md['config_type']
+    assert_equal 'Production', md['environment']
+    refute md.key?('rule_index')
+    refute md.key?('weighted_value_index')
+  end
+
+  def test_targeting_match_variant_and_flag_metadata
+    ctx = EvalCtx.new('user.plan' => 'pro')
+    details = @client.fetch_boolean_details(flag_key: 'of.targeting', default_value: false,
+                                            evaluation_context: ctx)
+    assert_equal 'targeting:0', details.variant
+    md = details.flag_metadata
+    assert_equal '18000000000000001', md['config_id']
+    assert_equal 'config', md['config_type']
+    assert_equal 0, md['rule_index']
+    refute md.key?('weighted_value_index')
+  end
+
+  def test_split_variant_and_flag_metadata
+    saw = nil
+    %w[user-1 user-2 user-3 user-4 user-5 user-100 user-123].each do |uid|
+      ctx = EvalCtx.new('user.id' => uid)
+      d = @client.fetch_string_details(flag_key: 'of.weighted', default_value: 'fallback',
+                                       evaluation_context: ctx)
+      next unless d.reason == Reason::SPLIT
+
+      saw = d
+      break
+    end
+    refute_nil saw, 'expected at least one user.id to land on SPLIT'
+    assert_match(/\Asplit:\d+\z/, saw.variant)
+    md = saw.flag_metadata
+    assert_equal '18000000000000002', md['config_id']
+    assert_equal 'config', md['config_type']
+    assert_equal saw.variant.split(':').last.to_i, md['weighted_value_index']
+    assert_kind_of Integer, md['rule_index']
+  end
+
+  def test_error_flag_not_found_variant_and_error_message
+    details = @client.fetch_boolean_details(flag_key: 'does-not-exist', default_value: false)
+    assert_equal Reason::ERROR, details.reason
+    assert_equal 'default', details.variant
+    refute_nil details.error_message
+    refute_empty details.error_message
+  end
 end

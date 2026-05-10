@@ -145,21 +145,29 @@ module Quonfig
       # the SDK consumes. The Quonfig SDK's *_details methods don't raise, so
       # this is a pure mapping layer.
       def to_resolution(details, default_value)
+        variant = details.variant
+        flag_metadata = details.flag_metadata || {}
         case details.reason
         when ::Quonfig::EvaluationDetails::REASON_STATIC
-          ResolutionDetails.new(value: details.value, reason: Reason::STATIC)
+          ResolutionDetails.new(value: details.value, reason: Reason::STATIC,
+                                variant: variant, flag_metadata: flag_metadata)
         when ::Quonfig::EvaluationDetails::REASON_TARGETING_MATCH
-          ResolutionDetails.new(value: details.value, reason: Reason::TARGETING_MATCH)
+          ResolutionDetails.new(value: details.value, reason: Reason::TARGETING_MATCH,
+                                variant: variant, flag_metadata: flag_metadata)
         when ::Quonfig::EvaluationDetails::REASON_SPLIT
-          ResolutionDetails.new(value: details.value, reason: Reason::SPLIT)
+          ResolutionDetails.new(value: details.value, reason: Reason::SPLIT,
+                                variant: variant, flag_metadata: flag_metadata)
         when ::Quonfig::EvaluationDetails::REASON_DEFAULT
-          ResolutionDetails.new(value: default_value, reason: Reason::DEFAULT)
+          ResolutionDetails.new(value: default_value, reason: Reason::DEFAULT,
+                                variant: variant, flag_metadata: flag_metadata)
         when ::Quonfig::EvaluationDetails::REASON_ERROR
           ResolutionDetails.new(
             value: default_value,
             reason: Reason::ERROR,
             error_code: map_error_code(details.error_code),
-            error_message: details.error_message
+            error_message: details.error_message,
+            variant: variant,
+            flag_metadata: flag_metadata
           )
         else
           # Defensive default: surface as ERROR so unknown reasons don't
@@ -168,7 +176,9 @@ module Quonfig
             value: default_value,
             reason: Reason::ERROR,
             error_code: ErrorCode::GENERAL,
-            error_message: "unknown reason: #{details.reason.inspect}"
+            error_message: "unknown reason: #{details.reason.inspect}",
+            variant: variant,
+            flag_metadata: flag_metadata
           )
         end
       end
