@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.8 - 2026-05-21
+
+- **Chore: bump `quonfig` runtime floor to `>= 0.0.18` (qfg-35sm follow-up).** The 0.0.17 and 0.0.18 releases of the native Ruby SDK land datadir and SSE improvements: opt-in `data_dir_auto_reload` with fork-safe watcher restart (qfg-mol-2da), int/double config-value coercion to real JSON numbers at datadir load time so the loaded envelope matches what api-delivery emits over HTTP/SSE (qfg-38sf.8), and an SSE `Net#read_timeout` headroom fix so the watchdog deadline always fires before the stdlib timeout and the SDK surfaces `SSEReadDeadlineExceeded` rather than a raw `Net::ReadTimeout` (qfg-6y44). Provider code is unchanged — all the improvements live in the SDK's datadir loader and SSE delivery path. Tightening the floor signals this provider is tested against and requires the production-hardened SDK so downstream installs of the OpenFeature provider can't pull in an SDK missing the datadir numeric-coercion fix.
+
 ## 0.0.7 - 2026-05-15
 
 - **Chore: bump `quonfig` runtime floor to `>= 0.0.16` (qfg-35sm + four post-review hardening fixes).** The 0.0.16 release of the native Ruby SDK replaces `ld-eventsource` entirely with an SDK-owned SSE reconnect loop and lands four post-review hardening fixes: `Thread#raise` containment via `handle_interrupt` (qfg-tj18), `on_envelope` callback isolation so a buggy listener can't cause reconnect storms (qfg-m3lk), 401/403/404 terminal-error classification so bad SDK keys stop hammering api-delivery-sse (qfg-i5xv), and a `Process._fork` hook so SSE auto-restarts in Puma/Unicorn workers without manual `on_worker_boot` wiring (qfg-ryov). Provider code is unchanged — all four improvements live in the SDK's SSE delivery path and fork lifecycle. Tightening the floor signals this provider is tested against and requires the production-hardened SDK.
