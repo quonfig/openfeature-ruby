@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.9 - 2026-05-28
+
+- **Chore: bump `quonfig` runtime floor to `>= 0.0.19` (sdk-1.0-unification).** The 0.0.19 release of the native Ruby SDK lands as part of the cross-SDK 1.0 unification effort. Provider code is unchanged — the improvements live in the SDK itself. Tightening the floor signals this provider is tested against and requires the unified SDK so downstream installs of the OpenFeature provider pull in the matching SDK release.
+
 ## 0.0.8 - 2026-05-21
 
 - **Chore: bump `quonfig` runtime floor to `>= 0.0.18` (qfg-35sm follow-up).** The 0.0.17 and 0.0.18 releases of the native Ruby SDK land datadir and SSE improvements: opt-in `data_dir_auto_reload` with fork-safe watcher restart (qfg-mol-2da), int/double config-value coercion to real JSON numbers at datadir load time so the loaded envelope matches what api-delivery emits over HTTP/SSE (qfg-38sf.8), and an SSE `Net#read_timeout` headroom fix so the watchdog deadline always fires before the stdlib timeout and the SDK surfaces `SSEReadDeadlineExceeded` rather than a raw `Net::ReadTimeout` (qfg-6y44). Provider code is unchanged — all the improvements live in the SDK's datadir loader and SSE delivery path. Tightening the floor signals this provider is tested against and requires the production-hardened SDK so downstream installs of the OpenFeature provider can't pull in an SDK missing the datadir numeric-coercion fix.
