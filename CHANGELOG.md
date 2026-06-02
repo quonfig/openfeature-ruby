@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.0.10 - 2026-06-02
+
+- Raise the `quonfig` dependency floor from `>= 0.0.19` to `>= 0.0.21` to inherit dev-context injection default-on (qfg-bw7g.9, via qfg-bw7g.5). No change to this provider's behavior — dev-context lives below the OpenFeature layer, so OpenFeature users now get `quonfig-user.email` injection by default in local dev (gated on the `qfg login` token file; inert in production).
+
 ## 0.0.9 - 2026-05-28
 
 - **Chore: bump `quonfig` runtime floor to `>= 0.0.19` (sdk-1.0-unification).** The 0.0.19 release of the native Ruby SDK lands as part of the cross-SDK 1.0 unification effort. Provider code is unchanged — the improvements live in the SDK itself. Tightening the floor signals this provider is tested against and requires the unified SDK so downstream installs of the OpenFeature provider pull in the matching SDK release.
