@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.0.1 - 2026-09-11
+
+- Raise the `quonfig` dependency floor from `>= 1.0.0` to `>= 1.4.0` so provider users inherit
+  the fork-safety fix (qfg-lv4n.1, qfg-4t5o). On quonfig 1.0.0-1.3.0 a process that forked and
+  kept evaluating in the parent went permanently dark after the fork while `connection_state`
+  reported `:connected`; 1.4.0 leaves the parent untouched and re-initializes the child on its
+  first use. No change to this provider's own behavior.
+
 ## 1.0.0 - 2026-06-06
 
 - **Stable 1.0.0 release.** The Quonfig OpenFeature provider for Ruby is now declared
