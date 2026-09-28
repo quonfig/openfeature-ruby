@@ -142,12 +142,17 @@ class TestSpec < Minitest::Test
   end
 
   def test_2_7_split_reason_for_weighted_value
-    # of.weighted picks via weighted_values keyed off user.id.
-    ctx = EvalCtx.new(targeting_key: '92a202f2')
+    # of.weighted picks via weighted_values keyed off user.id. targetingKey
+    # "user-123" (default targetingKeyMapping user.id) lands in bucket 0
+    # (variant-a). Bucket 0 must still report SPLIT (qfg-stbb) -- mirrors
+    # integration-test-data tests/openfeature/openfeature.yaml Case 5.
+    ctx = EvalCtx.new(targeting_key: 'user-123')
     details = @provider.fetch_string_value(flag_key: 'of.weighted', default_value: 'sentinel',
                                            evaluation_context: ctx)
     assert_equal Reason::SPLIT, details.reason
-    assert_includes %w[variant-a variant-b], details.value
+    assert_equal 'variant-a', details.value
+    assert_equal 'split:0', details.variant
+    assert_equal 0, details.flag_metadata['weighted_value_index']
   end
 
   def test_2_7_error_reason_for_missing_flag

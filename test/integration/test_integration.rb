@@ -105,22 +105,19 @@ class TestIntegration < Minitest::Test
   end
 
   def test_split_variant_and_flag_metadata
-    saw = nil
-    %w[user-1 user-2 user-3 user-4 user-5 user-100 user-123].each do |uid|
-      ctx = EvalCtx.new('user.id' => uid)
-      d = @client.fetch_string_details(flag_key: 'of.weighted', default_value: 'fallback',
-                                       evaluation_context: ctx)
-      next unless d.reason == Reason::SPLIT
-
-      saw = d
-      break
-    end
-    refute_nil saw, 'expected at least one user.id to land on SPLIT'
-    assert_match(/\Asplit:\d+\z/, saw.variant)
-    md = saw.flag_metadata
+    # user.id "user-123" deterministically lands in of.weighted bucket 0
+    # (variant-a). A bucket-0 weighted value must still report SPLIT with
+    # weighted_value_index 0 in flag metadata (qfg-stbb).
+    ctx = EvalCtx.new('user.id' => 'user-123')
+    d = @client.fetch_string_details(flag_key: 'of.weighted', default_value: 'fallback',
+                                     evaluation_context: ctx)
+    assert_equal Reason::SPLIT, d.reason
+    assert_equal 'variant-a', d.value
+    assert_equal 'split:0', d.variant
+    md = d.flag_metadata
     assert_equal '18000000000000002', md['config_id']
     assert_equal 'config', md['config_type']
-    assert_equal saw.variant.split(':').last.to_i, md['weighted_value_index']
+    assert_equal 0, md['weighted_value_index']
     assert_kind_of Integer, md['rule_index']
   end
 
