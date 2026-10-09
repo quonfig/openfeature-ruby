@@ -10,16 +10,16 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           path: openfeature-ruby
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: quonfig/sdk-ruby
           path: sdk-ruby
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           repository: quonfig/integration-test-data
           path: integration-test-data
