@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 - 2026-10-09
+
+- Raise the `quonfig` dependency floor from `>= 1.4.0` to `>= 1.7.2` so provider users inherit
+  sdk-ruby 1.7.2: no secret values in `TypeMismatchError` / `EnvVarParseError`, UTF-8 datadir
+  reads, `SemanticLoggerFilter` never raises, init race and regex match timeout fixes
+  (qfg-goi1.2.11, qfg-xy92, qfg-goi1.1.3, qfg-goi1.2.21). No change to this provider's behavior.
+
 ## 1.0.1 - 2026-09-11
 
 - Raise the `quonfig` dependency floor from `>= 1.0.0` to `>= 1.4.0` so provider users inherit
