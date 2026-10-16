@@ -7,7 +7,7 @@ jobs:
   wait-for-sdk:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Wait for quonfig on RubyGems
         run: |
           # Read the floor version from the gemspec's runtime quonfig dep.
@@ -43,7 +43,7 @@ jobs:
       version-changed: ${{ steps.check.outputs.changed }}
       current-version: ${{ steps.check.outputs.current-version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Check if version needs publishing
         id: check
         run: |
@@ -63,7 +63,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
