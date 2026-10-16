@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.0.3 - 2026-10-16
+
+- Build and test against `quonfig` 1.8.0 (Gemfile.lock). The runtime floor stays at `>= 1.7.2`: this
+  provider does not read `terminal_failure?` or `connection_state`, so nothing in it depends on
+  1.8.0. A fresh `bundle install` / `bundle update quonfig` resolves to 1.8.0, which changes behavior
+  OpenFeature users see through this provider:
+  - **UPGRADE: rule operators follow one cross-SDK semantics (qfg-goi1.5.7).** Pass dates in the
+    evaluation context as epoch milliseconds or ISO 8601 / RFC3339 with `Z` or a numeric offset.
+    Date-only, offset-less and free-form date strings no longer parse, so those `PROP_BEFORE` /
+    `PROP_AFTER` criteria stop matching. Whole-number floats read as plain digits (`1234567.0` ->
+    `"1234567"`) in string operators, and `PROP_SEMVER_*` accepts abbreviated versions (`"4.1"`).
+  - **UPGRADE: a rejected SDK key no longer latches the client off (qfg-goi1.10.26).** A
+    401/403/404/410 poll cycle enters an auth-failed state that probes every 150-300 s and recovers
+    by itself when the key works again, logging one ERROR (status and host, never the key) instead
+    of stopping the stream for the life of the process.
+  - Object flags (`fetch_object_value`) now get a fresh copy of the JSON value on every call, so a
+    caller mutating a resolved Hash or Array no longer changes later resolutions (qfg-goi1.10.3).
+  - Fixes: weighted-rollout `confidential` / `decryptWith` variants are redacted in telemetry
+    (qfg-goi1.2.39), `EnvVarParseError` messages use the cross-SDK wording (qfg-goi1.10.21), and
+    install/SSE robustness fixes (qfg-goi1.10.2, qfg-goi1.2.35).
+
 ## 1.0.2 - 2026-10-09
 
 - Raise the `quonfig` dependency floor from `>= 1.4.0` to `>= 1.7.2` so provider users inherit
