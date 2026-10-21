@@ -21,7 +21,7 @@ module Quonfig
         return ErrorCode::TYPE_MISMATCH if defined?(::Quonfig::Errors::TypeMismatchError) && err.is_a?(::Quonfig::Errors::TypeMismatchError)
 
         if (defined?(::Quonfig::Errors::UninitializedError) && err.is_a?(::Quonfig::Errors::UninitializedError)) ||
-           (defined?(::Quonfig::Errors::InitializationTimeoutError) && err.is_a?(::Quonfig::Errors::InitializationTimeoutError))
+           (defined?(::Quonfig::Errors::InitializationError) && err.is_a?(::Quonfig::Errors::InitializationError))
           return ErrorCode::PROVIDER_NOT_READY
         end
 

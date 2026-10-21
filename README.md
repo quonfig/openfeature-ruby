@@ -56,6 +56,26 @@ is_pro = client.fetch_boolean_value(flag_key: 'pro-feature', default_value: fals
                                      evaluation_context: ctx)
 ```
 
+## Startup failure and provider status
+
+The provider forwards `on_init_failure:` and `init_timeout_ms:` to `Quonfig::Client.new`, and its
+OpenFeature status follows the mode:
+
+| `on_init_failure` | `init` when no config loads | Provider status | Later |
+|-------------------|-----------------------------|-----------------|-------|
+| `:fail` (default) | raises `Quonfig::Errors::InitializationError` after `init_timeout_ms` (at once if the SDK key is rejected) | ERROR | No client exists, so nothing retries; restart the process |
+| `:wait`           | blocks and retries with no upper bound | NOT_READY while waiting | READY when config loads |
+| `:continue`       | returns; emits `PROVIDER_ERROR` | ERROR; evaluations return your default with `PROVIDER_NOT_READY` | emits `PROVIDER_READY` when the background retry loads config |
+
+```ruby
+provider = Quonfig::OpenFeature::Provider.new(
+  sdk_key: 'qf_sk_production_...',
+  on_init_failure: :continue, # :fail (default), :wait or :continue
+  init_timeout_ms: 10_000
+)
+OpenFeature::SDK.set_provider_and_wait(provider)
+```
+
 ## Context mapping
 
 OpenFeature context is flat; Quonfig context is nested by namespace. This provider

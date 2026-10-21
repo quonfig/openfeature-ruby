@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+- **UPGRADE: raise the `quonfig` floor from `>= 1.7.2` to `>= 1.10.0` (qfg-9p4i.12).** The provider
+  now uses sdk-ruby 1.10.0's init-failure surface (`on_init_failure: :fail | :wait | :continue`,
+  `init_timeout_ms`, `Client#ready?` / `#wait_for_ready`, `Quonfig::Errors::InitializationError`).
+  Read the 1.10.0 entry in the sdk-ruby CHANGELOG: `Client.new` now retries a failed boot until
+  `init_timeout_ms` (default 10s) before it raises, instead of raising on the first failed attempt.
+- **Added (minor): the provider emits OpenFeature events and its status follows `on_init_failure`
+  (init-failure design B.5).** Pass `on_init_failure:` and `init_timeout_ms:` to `Provider.new`; they
+  are forwarded to `Quonfig::Client.new` as before.
+  - `:fail` (the default): `init` raises `Quonfig::Errors::InitializationError` when no config loads,
+    so `set_provider_and_wait` raises and the provider is ERROR. sdk-ruby returns no client under
+    `:fail`, so nothing retries in the background; the process restart is the retry.
+  - `:wait`: `init` blocks until config loads. The provider is NOT_READY for the whole wait, then READY.
+  - `:continue` with no config: `init` resolves, then the provider emits `PROVIDER_ERROR` (error code
+    `PROVIDER_NOT_READY`), so its status is ERROR rather than READY while every evaluation returns the
+    code default. When the client's background retry loads config, the provider emits
+    `PROVIDER_READY`. Before, the provider reported READY and emitted no events.
+  - A client injected with `client:` gets the same treatment: if it has no config at `init`, the
+    provider reports ERROR until it heals.
+- **Fix: an evaluation before config loads reports `PROVIDER_NOT_READY`.** sdk-ruby 1.10.0's
+  `*_details` getters return error code `PROVIDER_NOT_READY` on a client with no config; the provider
+  mapped that to `GENERAL`. `Quonfig::Errors::InitializationError` (any reason, not only the timeout
+  subclass) now maps to `PROVIDER_NOT_READY` too.
+- Build and test against `quonfig` 1.10.0 (Gemfile.lock).
+
 ## 1.0.3 - 2026-10-16
 
 - Build and test against `quonfig` 1.8.0 (Gemfile.lock). The runtime floor stays at `>= 1.7.2`: this
