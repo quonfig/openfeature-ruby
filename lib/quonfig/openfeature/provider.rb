@@ -31,8 +31,25 @@ module Quonfig
     #
     #   client = OpenFeature::SDK.build_client
     #   client.fetch_boolean_value(flag_key: 'my-flag', default_value: false)
+    #
+    # Provider status follows the SDK's +on_init_failure+ mode (init-failure
+    # design B.5). Pass +on_init_failure:+ and +init_timeout_ms:+ through
+    # +Provider.new+; they are forwarded to +Quonfig::Client.new+.
+    #
+    #   * +:fail+ (default): +init+ raises, so the provider is ERROR. sdk-ruby
+    #     returns no client, so nothing retries; restart the process.
+    #   * +:wait+: +init+ blocks until config loads (NOT_READY), then READY.
+    #   * +:continue+: +init+ resolves; with no config yet the provider emits
+    #     PROVIDER_ERROR (ERROR, evaluations return the default with
+    #     PROVIDER_NOT_READY), then PROVIDER_READY when the client heals.
     class Provider
+      include ::OpenFeature::SDK::Provider::EventEmitter
+
       NAME = 'quonfig'
+
+      # How long the heal watcher waits for OpenFeature to record the READY it
+      # dispatches when +init+ returns, before it reports PROVIDER_ERROR.
+      INIT_DISPATCH_WAIT_S = 5
 
       ResolutionDetails = ::OpenFeature::SDK::Provider::ResolutionDetails
       Reason            = ::OpenFeature::SDK::Provider::Reason
@@ -63,16 +80,19 @@ module Quonfig
           environment: environment,
           extra: quonfig_options
         )
-        @initialized = !@client.nil?
+        @initialized = false
       end
 
       # Initialize the underlying Quonfig client. Called by
-      # +OpenFeature::SDK.set_provider_and_wait+.
+      # +OpenFeature::SDK.set_provider_and_wait+. Raises under
+      # +on_init_failure: :fail+ when no config loads, which OpenFeature
+      # records as ERROR.
       def init(_evaluation_context = nil)
         return if @initialized
 
-        @client = ::Quonfig::Client.new(@quonfig_options)
+        @client ||= ::Quonfig::Client.new(@quonfig_options)
         @initialized = true
+        watch_for_heal(@client) unless client_ready?(@client)
         nil
       end
 
@@ -83,6 +103,8 @@ module Quonfig
         @client = nil
         @initialized = false
         client&.stop
+        @heal_thread&.join(1)
+        @heal_thread = nil
         nil
       end
 
@@ -141,6 +163,41 @@ module Quonfig
 
       private
 
+      def client_ready?(client)
+        !client.respond_to?(:ready?) || client.ready?
+      end
+
+      # +on_init_failure: :continue+ left the client without config. Report
+      # ERROR once OpenFeature has recorded the READY it dispatches after +init+
+      # returns, then READY when the client's background retry heals.
+      def watch_for_heal(client)
+        @heal_thread = Thread.new do
+          await_init_dispatch
+          unless client.ready?
+            emit_event(::OpenFeature::SDK::ProviderEvent::PROVIDER_ERROR,
+                       error_code: ErrorCode::PROVIDER_NOT_READY,
+                       message: 'Quonfig has no config yet (on_init_failure: :continue); ' \
+                                'serving code defaults while it retries')
+          end
+          emit_event(::OpenFeature::SDK::ProviderEvent::PROVIDER_READY) if client.wait_for_ready && @client.equal?(client)
+        end
+      end
+
+      # OpenFeature dispatches PROVIDER_READY after +init+ returns. Wait for it
+      # so our PROVIDER_ERROR lands after it, not before. +provider_state+ is
+      # private in openfeature-sdk 0.5.x and public in 0.6.x.
+      def await_init_dispatch
+        config = @configuration
+        return unless config.respond_to?(:provider_state, true)
+
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + INIT_DISPATCH_WAIT_S
+        while config.send(:provider_state, self) == ::OpenFeature::SDK::ProviderState::NOT_READY
+          break if Process.clock_gettime(Process::CLOCK_MONOTONIC) > deadline
+
+          sleep 0.01
+        end
+      end
+
       # Map a Quonfig::EvaluationDetails to the OpenFeature ResolutionDetails
       # the SDK consumes. The Quonfig SDK's *_details methods don't raise, so
       # this is a pure mapping layer.
@@ -187,6 +244,7 @@ module Quonfig
         case error_code
         when ::Quonfig::EvaluationDetails::ERROR_FLAG_NOT_FOUND then ErrorCode::FLAG_NOT_FOUND
         when ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH  then ErrorCode::TYPE_MISMATCH
+        when ::Quonfig::EvaluationDetails::ERROR_PROVIDER_NOT_READY then ErrorCode::PROVIDER_NOT_READY
         else ErrorCode::GENERAL
         end
       end
@@ -204,7 +262,7 @@ module Quonfig
 
         mapped_ctx = Context.map_context(evaluation_context, @targeting_key_mapping)
         yield(client, mapped_ctx)
-      rescue ::Quonfig::Errors::UninitializedError, ::Quonfig::Errors::InitializationTimeoutError => e
+      rescue ::Quonfig::Errors::UninitializedError, ::Quonfig::Errors::InitializationError => e
         ResolutionDetails.new(value: default_value, reason: Reason::ERROR,
                               error_code: ErrorCode::PROVIDER_NOT_READY,
                               error_message: e.message)
