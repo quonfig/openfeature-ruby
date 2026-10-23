@@ -1,7 +1,14 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-10-23
 
+- **UPGRADE: raise the `quonfig` floor from `>= 1.10.0` to `>= 1.11.0`. Requires sdk-ruby 1.11.0:
+  SSE event and config body size caps, `Client#callback_errors_total`.** The provider code does not
+  change for 1.11.0. The new floor means every install of this provider gets those sdk-ruby changes:
+  an oversized SSE event (over 4 MiB) or config body (over 16 MiB) is treated as a failed attempt
+  instead of being read without limit, and `Dir.home` failures no longer raise from `Client.new`.
+  Read the 1.11.0 entry in the sdk-ruby CHANGELOG. Build and test against `quonfig` 1.11.0
+  (Gemfile.lock).
 - **UPGRADE: raise the `quonfig` floor from `>= 1.7.2` to `>= 1.10.0` (qfg-9p4i.12).** The provider
   now uses sdk-ruby 1.10.0's init-failure surface (`on_init_failure: :fail | :wait | :continue`,
   `init_timeout_ms`, `Client#ready?` / `#wait_for_ready`, `Quonfig::Errors::InitializationError`).
@@ -24,7 +31,6 @@
   `*_details` getters return error code `PROVIDER_NOT_READY` on a client with no config; the provider
   mapped that to `GENERAL`. `Quonfig::Errors::InitializationError` (any reason, not only the timeout
   subclass) now maps to `PROVIDER_NOT_READY` too.
-- Build and test against `quonfig` 1.10.0 (Gemfile.lock).
 
 ## 1.0.3 - 2026-10-16
 
