@@ -1,5 +1,49 @@
 # Changelog
 
+## 2.0.0 - 2026-10-27
+
+**BREAKING / UPGRADE (major, qfg-zvyy.6).** This release tracks sdk-ruby 2.0.0, the cross-SDK
+typed-getter contract. Require `quonfig` (sdk-ruby) `>= 2.0.0` (floor raised from `>= 1.11.0`). No
+change to this provider's code: it passes through the SDK's `*_details` results, so provider users
+inherit the contract below.
+
+### UPGRADE to 2.0
+
+A value a `fetch_*` method cannot read as its type returns your default with reason `ERROR` and
+error code `TYPE_MISMATCH`. Strings are never coerced, and the only number conversions are exact
+ones. What changes for provider users:
+
+- `fetch_float_value` on an int config now returns the value (`30` -> `30.0`). 1.x returned your
+  default with `TYPE_MISMATCH`.
+- `fetch_integer_value` on a double config returns the value when it is whole and within
+  +/-(2^53-1) (`3.0` -> `3`). 1.x returned your default for every double. `3.9`, `2^53` and `1e300`
+  still return your default with `TYPE_MISMATCH`, never truncated.
+- `fetch_number_value` on a `duration` config returns your default with `TYPE_MISMATCH`. 1.x
+  returned the duration in milliseconds (`30000`, reason `STATIC`). Durations are native-only: use
+  `provider.client.get_duration` (integer milliseconds). `fetch_float_value` on a duration already
+  returned your default.
+- A malformed stored int or double (for example `"twelve"`) or a malformed ENV_VAR value returns
+  your default with error code `TYPE_MISMATCH`, as in sdk-go. 1.x reported `GENERAL`. An unset
+  ENV_VAR still returns your default with `GENERAL`.
+- sdk-ruby logs one WARN per key per client when a read returns your default because of a type
+  mismatch, a malformed value, an unset ENV_VAR or a decryption failure. The line names the key and
+  types, never the value. A wrong decryption key now degrades to your defaults with these WARNs.
+- If you call the native client via `provider.client`: typed getters with a `default:` return the
+  default instead of raising, `enabled?` is true only for the bool `true` and never raises, and
+  `get_bool` on a stored string `"true"` is a type mismatch. See the sdk-ruby CHANGELOG
+  "UPGRADE to 2.0".
+
+These already held under 1.11.0 through the provider, and the new tests now pin them: a stored
+string `"true"` / `"false"` read as a boolean, a stored `"3"` read as a number, an int or bool read as
+a string, an int read as a boolean, and a string or bool read as an object all return your default
+with `TYPE_MISMATCH`.
+
+### Tests
+
+- New `test/integration/test_typed_getter_contract.rb` (31 tests) drives the real provider through
+  the OpenFeature client against the integration-test-data `getter.contract.*` fixtures. 7 of the 31
+  fail on sdk-ruby 1.11.0; all pass on 2.0.0.
+
 ## 1.1.0 - 2026-10-23
 
 - **UPGRADE: raise the `quonfig` floor from `>= 1.10.0` to `>= 1.11.0`. Requires sdk-ruby 1.11.0:
