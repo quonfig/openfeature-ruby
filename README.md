@@ -134,12 +134,29 @@ Quonfig features require the native `quonfig` SDK:
 
 1. **Log levels** -- `should_log?` and the `semantic_logger_filter` are native-only.
 2. **`string_list` configs** -- accessed via `fetch_object_value` and used as `Array<String>`.
-3. **`duration` configs** -- exposed only via the native `get_duration` (returns milliseconds).
+3. **`duration` configs** -- native-only: read them with `provider.client.get_duration` (integer
+   milliseconds). `fetch_float_value` and `fetch_number_value` on a duration config return your
+   default with `TYPE_MISMATCH`.
 4. **`bytes` configs** -- not accessible via OpenFeature (no binary type in OF).
 5. **`keys` / raw config inspection** -- native-only via `provider.client`.
 6. **Context keys use dot-notation** -- `"user.email"`, not nested hashes.
 7. **`targeting_key` maps to `user.id` by default** -- configure
    `targeting_key_mapping` if you target a different namespace.
+
+## Typed reads
+
+Each `fetch_*` method reads only values of its type (the cross-SDK typed-getter contract,
+`quonfig` >= 2.0.0). A value of another type returns your default with reason `ERROR` and error
+code `TYPE_MISMATCH`:
+
+- A stored string is never coerced: `"false"` is not a boolean and `"3"` is not a number.
+- Numbers convert only when exact: `fetch_float_value` on an int config returns `30.0`, and
+  `fetch_integer_value` on a double config returns the value only when it is whole and within
+  +/-(2^53-1) (`3.0` -> `3`; `3.9` is a mismatch, never truncated).
+- A malformed stored or ENV_VAR value (an int `"twelve"`) also returns your default with
+  `TYPE_MISMATCH`. An unset ENV_VAR returns your default with `GENERAL`.
+
+sdk-ruby logs one WARN per key when a read returns your default for one of these reasons.
 
 ## Offline / test mode
 
