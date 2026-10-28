@@ -166,27 +166,54 @@ class TestTypedGetterContract < Minitest::Test
 
   # ---- malformed values and resolution errors return the default -----------
   #
-  # sdk-ruby 2.0 reports a malformed value, stored or ENV_VAR, as TYPE_MISMATCH
-  # (as sdk-go does). An unset ENV_VAR is a resolution error: GENERAL.
+  # A malformed value, stored or ENV_VAR, of the requested type (or one the
+  # method converts exactly) is PARSE_ERROR (qfg-9xsl). An unset ENV_VAR is a
+  # resolution error: GENERAL.
+
+  def assert_parse_error(details, default)
+    assert_error(details, default, ErrorCode::PARSE_ERROR)
+  end
 
   def test_float_on_malformed_double_returns_default
-    assert_type_mismatch(fetch(:float, 'getter.contract.double.malformed', 1.5), 1.5)
+    assert_parse_error(fetch(:float, 'getter.contract.double.malformed', 1.5), 1.5)
   end
 
   def test_integer_on_malformed_int_returns_default
-    assert_type_mismatch(fetch(:integer, 'getter.contract.int.malformed', 12), 12)
+    assert_parse_error(fetch(:integer, 'getter.contract.int.malformed', 12), 12)
+  end
+
+  def test_float_on_malformed_int_returns_default
+    assert_parse_error(fetch(:float, 'getter.contract.int.malformed', 1.5), 1.5)
+  end
+
+  def test_integer_on_malformed_double_returns_default
+    assert_parse_error(fetch(:integer, 'getter.contract.double.malformed', 12), 12)
+  end
+
+  def test_number_on_malformed_int_returns_default
+    assert_parse_error(fetch(:number, 'getter.contract.int.malformed', 12), 12)
   end
 
   def test_integer_on_malformed_env_var_returns_default
     with_env('QUONFIG_ITD_GETTER_INT', 'twelve') do
-      assert_type_mismatch(fetch(:integer, 'getter.contract.provided.int.malformed', 4), 4)
+      assert_parse_error(fetch(:integer, 'getter.contract.provided.int.malformed', 4), 4)
     end
   end
 
   def test_float_on_malformed_env_var_returns_default
     with_env('QUONFIG_ITD_GETTER_DOUBLE', 'abc') do
-      assert_type_mismatch(fetch(:float, 'getter.contract.provided.double.malformed', 2.5), 2.5)
+      assert_parse_error(fetch(:float, 'getter.contract.provided.double.malformed', 2.5), 2.5)
     end
+  end
+
+  def test_string_on_malformed_duration_returns_default
+    assert_parse_error(fetch(:string, 'test.duration.malformed.30s', 'PT0S'), 'PT0S')
+  end
+
+  def test_boolean_on_malformed_int_is_type_mismatch_not_parse_error
+    # The wrong-type read wins: a bool read of an int config is the caller's
+    # problem whatever the stored value looks like.
+    assert_type_mismatch(fetch(:boolean, 'getter.contract.int.malformed', true), true)
   end
 
   def test_boolean_on_unset_env_var_returns_default

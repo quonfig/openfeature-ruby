@@ -10,7 +10,7 @@ PATH
 PATH
   remote: .
   specs:
-    quonfig-openfeature (2.0.0)
+    quonfig-openfeature (2.1.0)
       openfeature-sdk (>= 0.5)
       quonfig (>= 2.0.0)
 

@@ -225,6 +225,70 @@ class TestSpec < Minitest::Test
   end
 
   # -------------------------------------------------------------------------
+  # Malformed values are PARSE_ERROR; wrong-type reads are TYPE_MISMATCH
+  # (qfg-9xsl). Mirrors integration-test-data tests/openfeature/openfeature.yaml
+  # Case 6 and the malformed-duration case in Case 2.
+  # -------------------------------------------------------------------------
+
+  def with_env(name, value)
+    old = ENV.fetch(name, nil)
+    value.nil? ? ENV.delete(name) : ENV[name] = value
+    yield
+  ensure
+    old.nil? ? ENV.delete(name) : ENV[name] = old
+  end
+
+  def assert_error_details(details, default, error_code)
+    assert_equal default, details.value
+    assert_equal Reason::ERROR, details.reason
+    assert_equal error_code, details.error_code
+  end
+
+  def test_case6_malformed_stored_int_via_number_is_parse_error
+    details = @provider.fetch_number_value(flag_key: 'getter.contract.int.malformed', default_value: 7)
+    assert_error_details(details, 7, ErrorCode::PARSE_ERROR)
+  end
+
+  def test_case6_malformed_stored_int_via_integer_is_parse_error
+    details = @provider.fetch_integer_value(flag_key: 'getter.contract.int.malformed', default_value: 7)
+    assert_error_details(details, 7, ErrorCode::PARSE_ERROR)
+  end
+
+  def test_case6_malformed_stored_double_via_number_is_parse_error
+    details = @provider.fetch_number_value(flag_key: 'getter.contract.double.malformed', default_value: 1.5)
+    assert_error_details(details, 1.5, ErrorCode::PARSE_ERROR)
+  end
+
+  def test_case6_malformed_stored_double_via_float_is_parse_error
+    details = @provider.fetch_float_value(flag_key: 'getter.contract.double.malformed', default_value: 1.5)
+    assert_error_details(details, 1.5, ErrorCode::PARSE_ERROR)
+  end
+
+  def test_case6_env_var_malformed_int_via_number_is_parse_error
+    with_env('QUONFIG_ITD_GETTER_INT', 'twelve') do
+      details = @provider.fetch_number_value(flag_key: 'getter.contract.provided.int.malformed', default_value: 7)
+      assert_error_details(details, 7, ErrorCode::PARSE_ERROR)
+    end
+  end
+
+  def test_case6_env_var_malformed_int_via_integer_is_parse_error
+    with_env('QUONFIG_ITD_GETTER_INT', 'twelve') do
+      details = @provider.fetch_integer_value(flag_key: 'getter.contract.provided.int.malformed', default_value: 7)
+      assert_error_details(details, 7, ErrorCode::PARSE_ERROR)
+    end
+  end
+
+  def test_case6_int_config_via_boolean_is_type_mismatch
+    details = @provider.fetch_boolean_value(flag_key: 'getter.contract.int', default_value: false)
+    assert_error_details(details, false, ErrorCode::TYPE_MISMATCH)
+  end
+
+  def test_case2_malformed_stored_duration_via_string_is_parse_error
+    details = @provider.fetch_string_value(flag_key: 'test.duration.malformed.30s', default_value: 'PT0S')
+    assert_error_details(details, 'PT0S', ErrorCode::PARSE_ERROR)
+  end
+
+  # -------------------------------------------------------------------------
   # 2.8 — Provider metadata
   # -------------------------------------------------------------------------
 
