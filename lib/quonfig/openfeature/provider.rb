@@ -56,6 +56,32 @@ module Quonfig
       ErrorCode         = ::OpenFeature::SDK::Provider::ErrorCode
       ProviderMetadata  = ::OpenFeature::SDK::Provider::ProviderMetadata
 
+      # The stored +valueType+s each fetch method can read: its own type plus
+      # the ones it converts exactly (int <-> double, duration -> ISO string).
+      # A TYPE_MISMATCH on a config of one of these types means the value
+      # did not parse, so it is reported as PARSE_ERROR (qfg-9xsl).
+      READABLE_VALUE_TYPES = {
+        boolean: %w[bool],
+        string: %w[string log_level duration],
+        integer: %w[int double],
+        float: %w[double int],
+        number: %w[int double],
+        object: %w[string_list json]
+      }.freeze
+
+      # The native details getter that reads each stored +valueType+ as itself.
+      NATIVE_DETAILS_GETTER = {
+        'bool' => :get_bool_details,
+        'string' => :get_string_details,
+        'log_level' => :get_string_details,
+        'duration' => :get_duration_details,
+        'int' => :get_int_details,
+        'double' => :get_float_details,
+        'string_list' => :get_string_list_details,
+        'json' => :get_json_details
+      }.freeze
+      private_constant :READABLE_VALUE_TYPES, :NATIVE_DETAILS_GETTER
+
       attr_reader :metadata, :targeting_key_mapping
 
       # @param sdk_key [String, nil] SDK key for the live delivery service.
@@ -117,13 +143,15 @@ module Quonfig
 
       def fetch_boolean_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          to_resolution(client.get_bool_details(flag_key, context: mapped_ctx), default_value)
+          details = client.get_bool_details(flag_key, context: mapped_ctx)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :boolean, details))
         end
       end
 
       def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          to_resolution(client.get_string_details(flag_key, context: mapped_ctx), default_value)
+          details = client.get_string_details(flag_key, context: mapped_ctx)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :string, details))
         end
       end
 
@@ -134,19 +162,21 @@ module Quonfig
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
           details = client.get_int_details(flag_key, context: mapped_ctx)
           details = client.get_float_details(flag_key, context: mapped_ctx) if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
-          to_resolution(details, default_value)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :number, details))
         end
       end
 
       def fetch_integer_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          to_resolution(client.get_int_details(flag_key, context: mapped_ctx), default_value)
+          details = client.get_int_details(flag_key, context: mapped_ctx)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :integer, details))
         end
       end
 
       def fetch_float_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          to_resolution(client.get_float_details(flag_key, context: mapped_ctx), default_value)
+          details = client.get_float_details(flag_key, context: mapped_ctx)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :float, details))
         end
       end
 
@@ -157,7 +187,7 @@ module Quonfig
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
           details = client.get_string_list_details(flag_key, context: mapped_ctx)
           details = client.get_json_details(flag_key, context: mapped_ctx) if details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
-          to_resolution(details, default_value)
+          to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :object, details))
         end
       end
 
@@ -198,10 +228,37 @@ module Quonfig
         end
       end
 
+      # True when +details+ is a TYPE_MISMATCH for a config whose value has a
+      # type +kind+ can read but did not parse: a stored int "twelve", an int
+      # ENV_VAR set to "twelve", a duration "30s" (qfg-9xsl). sdk-ruby's
+      # *_details report a malformed value and a wrong-type read alike as
+      # TYPE_MISMATCH, so this checks the stored +valueType+ and reads the
+      # config with the getter for that type: if that read fails too, the
+      # value is malformed. A config of a type +kind+ cannot read stays
+      # TYPE_MISMATCH, and so does a value that parsed but does not convert
+      # exactly (fetch_integer_value on a 3.9 double).
+      def malformed?(client, flag_key, mapped_ctx, kind, details)
+        return false unless details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+
+        value_type = stored_value_type(client, flag_key)
+        return false unless READABLE_VALUE_TYPES.fetch(kind).include?(value_type)
+
+        native = client.public_send(NATIVE_DETAILS_GETTER.fetch(value_type), flag_key, context: mapped_ctx)
+        native.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+      end
+
+      def stored_value_type(client, flag_key)
+        config = client.store.get(flag_key)
+        return nil unless config.is_a?(Hash)
+
+        (config['valueType'] || config[:valueType] || config['value_type'] || config[:value_type])&.to_s
+      end
+
       # Map a Quonfig::EvaluationDetails to the OpenFeature ResolutionDetails
       # the SDK consumes. The Quonfig SDK's *_details methods don't raise, so
-      # this is a pure mapping layer.
-      def to_resolution(details, default_value)
+      # this is a pure mapping layer. +parse_error+ reports an ERROR as
+      # PARSE_ERROR (see #malformed?).
+      def to_resolution(details, default_value, parse_error: false)
         variant = details.variant
         flag_metadata = details.flag_metadata || {}
         case details.reason
@@ -221,7 +278,7 @@ module Quonfig
           ResolutionDetails.new(
             value: default_value,
             reason: Reason::ERROR,
-            error_code: map_error_code(details.error_code),
+            error_code: parse_error ? ErrorCode::PARSE_ERROR : map_error_code(details.error_code),
             error_message: details.error_message,
             variant: variant,
             flag_metadata: flag_metadata

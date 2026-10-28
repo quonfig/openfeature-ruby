@@ -153,8 +153,10 @@ code `TYPE_MISMATCH`:
 - Numbers convert only when exact: `fetch_float_value` on an int config returns `30.0`, and
   `fetch_integer_value` on a double config returns the value only when it is whole and within
   +/-(2^53-1) (`3.0` -> `3`; `3.9` is a mismatch, never truncated).
-- A malformed stored or ENV_VAR value (an int `"twelve"`) also returns your default with
-  `TYPE_MISMATCH`. An unset ENV_VAR returns your default with `GENERAL`.
+- A malformed value of a type the method reads returns your default with `PARSE_ERROR`: a stored
+  int `"twelve"`, an int or double ENV_VAR set to `"twelve"`, or a stored duration `"30s"` read
+  with `fetch_string_value`. A read with the method for another type stays `TYPE_MISMATCH`. An
+  unset ENV_VAR returns your default with `GENERAL`.
 
 sdk-ruby logs one WARN per key when a read returns your default for one of these reasons.
 

@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.1.0 - 2026-10-28
+
+A malformed value now resolves with error code `PARSE_ERROR` instead of `TYPE_MISMATCH`
+(qfg-9xsl, mirrors integration-test-data `tests/openfeature/openfeature.yaml` Case 6). You still
+get your default with reason `ERROR`. This covers a value of a type the `fetch_*` method reads that
+does not parse:
+
+- a stored int `"twelve"` or double `"abc"`;
+- an int or double provided by an ENV_VAR set to an unparseable string, such as `"twelve"`;
+- a malformed stored duration such as `"30s"`, read with `fetch_string_value`.
+
+A read with the method for another type (an int config read with `fetch_boolean_value`) stays
+`TYPE_MISMATCH`, as does a number that parses but does not convert exactly (`fetch_integer_value`
+on `3.9`). sdk-ruby's `*_details` report both cases as `TYPE_MISMATCH`, so the provider tells them
+apart: on a `TYPE_MISMATCH` it checks the config's stored `valueType` and, if the method can read
+that type, reads it with the native getter for that type. If that read fails too, the value is
+malformed. This extra read happens only on the error path.
+
+If you alert or branch on `TYPE_MISMATCH` for bad config data, match `PARSE_ERROR` as well.
+
 ## 2.0.0 - 2026-10-27
 
 **BREAKING / UPGRADE (major, qfg-zvyy.6).** This release tracks sdk-ruby 2.0.0, the cross-SDK
