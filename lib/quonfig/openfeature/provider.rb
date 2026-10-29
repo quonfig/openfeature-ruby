@@ -148,9 +148,16 @@ module Quonfig
         end
       end
 
+      # A +duration+ config reads as its stored ISO 8601 text, unchanged
+      # ("PT90S" stays "PT90S"): OpenFeature has no duration type (qfg-177f).
       def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
-          details = client.get_string_details(flag_key, context: mapped_ctx)
+          details =
+            if stored_value_type(client, flag_key) == 'duration'
+              duration_iso_details(client, flag_key, mapped_ctx)
+            else
+              client.get_string_details(flag_key, context: mapped_ctx)
+            end
           to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :string, details))
         end
       end
@@ -245,6 +252,30 @@ module Quonfig
 
         native = client.public_send(NATIVE_DETAILS_GETTER.fetch(value_type), flag_key, context: mapped_ctx)
         native.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+      end
+
+      # Read a duration config as its ISO 8601 text. sdk-ruby's
+      # get_duration_details evaluates and validates the value (a malformed
+      # one is an error, reported as PARSE_ERROR by #malformed?) but returns
+      # milliseconds, so the text comes from the resolved value itself. It
+      # is the stored text, or an ENV_VAR's text for a provided duration.
+      def duration_iso_details(client, flag_key, mapped_ctx)
+        details = client.get_duration_details(flag_key, context: mapped_ctx)
+        return details unless details.error_code.nil? && !details.value.nil?
+
+        iso = resolved_raw_value(client, flag_key, mapped_ctx)
+        return client.get_string_details(flag_key, context: mapped_ctx) unless iso.is_a?(String)
+
+        ::Quonfig::EvaluationDetails.new(value: iso, reason: details.reason, variant: details.variant,
+                                         flag_metadata: details.flag_metadata)
+      end
+
+      # The resolved, uncoerced value of +flag_key+, evaluated with the same
+      # context the client's *_details use (its global context merged under
+      # +mapped_ctx+).
+      def resolved_raw_value(client, flag_key, mapped_ctx)
+        ctx = client.respond_to?(:build_context, true) ? client.send(:build_context, mapped_ctx) : mapped_ctx
+        client.resolver.get(flag_key, ctx)&.raw_value
       end
 
       def stored_value_type(client, flag_key)
