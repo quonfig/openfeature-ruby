@@ -283,6 +283,22 @@ class TestSpec < Minitest::Test
     assert_error_details(details, false, ErrorCode::TYPE_MISMATCH)
   end
 
+  # Case 2: a well-formed duration reads through fetch_string_value as its
+  # stored ISO 8601 text, unchanged (qfg-177f).
+  def test_case2_duration_via_string_returns_stored_iso_text
+    details = @provider.fetch_string_value(flag_key: 'test.duration.PT90S', default_value: 'PT0S')
+    assert_equal 'PT90S', details.value
+    assert_equal Reason::STATIC, details.reason
+    assert_nil details.error_code
+  end
+
+  def test_case2_multi_component_duration_via_string_is_unchanged
+    details = @provider.fetch_string_value(flag_key: 'test.duration.P1DT6H2M1.5S', default_value: 'PT0S')
+    assert_equal 'P1DT6H2M1.5S', details.value
+    assert_equal Reason::STATIC, details.reason
+    assert_nil details.error_code
+  end
+
   def test_case2_malformed_stored_duration_via_string_is_parse_error
     details = @provider.fetch_string_value(flag_key: 'test.duration.malformed.30s', default_value: 'PT0S')
     assert_error_details(details, 'PT0S', ErrorCode::PARSE_ERROR)
