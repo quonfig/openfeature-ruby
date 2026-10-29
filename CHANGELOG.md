@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.2.0 - 2026-10-29
+
+`fetch_string_value` on a `duration` config returns its stored ISO 8601 text again (reason
+`STATIC`), as in openfeature-go and the shared OpenFeature cases (qfg-177f). The text comes back
+unchanged: `"PT90S"` stays `"PT90S"`, not `"PT1M30S"`. 2.x returned your default with
+`TYPE_MISMATCH`. Number reads of a duration still return your default. A malformed stored duration
+such as `"30s"` still returns your default with `PARSE_ERROR`, and so does a duration ENV_VAR set
+to a malformed value.
+
+Requires quonfig (sdk-ruby) 2.1.0: the text is read with its new public `evaluate_details`, in one
+evaluation, and checked against the shared duration grammar with `Quonfig::Duration.valid?`.
+
 ## 2.1.0 - 2026-10-28
 
 A malformed value now resolves with error code `PARSE_ERROR` instead of `TYPE_MISMATCH`

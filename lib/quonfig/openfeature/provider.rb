@@ -148,8 +148,12 @@ module Quonfig
         end
       end
 
+      # A +duration+ config reads as its stored ISO 8601 text, unchanged
+      # ("PT90S" stays "PT90S"): OpenFeature has no duration type (qfg-177f).
       def fetch_string_value(flag_key:, default_value:, evaluation_context: nil)
         evaluate(flag_key, default_value, evaluation_context) do |client, mapped_ctx|
+          next duration_iso_resolution(client, flag_key, mapped_ctx, default_value) if stored_value_type(client, flag_key) == 'duration'
+
           details = client.get_string_details(flag_key, context: mapped_ctx)
           to_resolution(details, default_value, parse_error: malformed?(client, flag_key, mapped_ctx, :string, details))
         end
@@ -245,6 +249,38 @@ module Quonfig
 
         native = client.public_send(NATIVE_DETAILS_GETTER.fetch(value_type), flag_key, context: mapped_ctx)
         native.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+      end
+
+      # Read a duration config as its ISO 8601 text with one evaluation:
+      # sdk-ruby's evaluate_details (quonfig >= 2.1.0) returns the resolved
+      # value in stored form, so the text is the stored text, or an ENV_VAR's
+      # text for a provided duration. evaluate_details does no type check, so
+      # the text is validated here with Quonfig::Duration.valid?, the grammar
+      # get_duration uses:
+      #
+      #   * valid text: the text, with the evaluation's reason, variant and
+      #     flag_metadata.
+      #   * malformed stored text ("30s"): the default with PARSE_ERROR.
+      #   * malformed ENV_VAR: evaluate_details reports ERROR / TYPE_MISMATCH,
+      #     which on a duration config can only mean a value that did not
+      #     parse, so it is PARSE_ERROR too.
+      #   * the structured { seconds, nanos } shape has no ISO text: the
+      #     default with TYPE_MISMATCH.
+      def duration_iso_resolution(client, flag_key, mapped_ctx, default_value)
+        details = client.evaluate_details(flag_key, context: mapped_ctx)
+        if details.reason == ::Quonfig::EvaluationDetails::REASON_ERROR
+          parse_error = details.error_code == ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH
+          return to_resolution(details, default_value, parse_error: parse_error)
+        end
+        return to_resolution(details, default_value) if details.reason == ::Quonfig::EvaluationDetails::REASON_DEFAULT
+
+        value = details.value
+        return to_resolution(details, default_value) if value.is_a?(String) && ::Quonfig::Duration.valid?(value)
+
+        error_code = value.is_a?(String) ? ErrorCode::PARSE_ERROR : ErrorCode::TYPE_MISMATCH
+        ResolutionDetails.new(value: default_value, reason: Reason::ERROR, error_code: error_code,
+                              error_message: "duration #{flag_key.inspect} has no valid ISO 8601 text",
+                              variant: details.variant, flag_metadata: details.flag_metadata || {})
       end
 
       def stored_value_type(client, flag_key)

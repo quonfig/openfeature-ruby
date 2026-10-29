@@ -134,9 +134,9 @@ Quonfig features require the native `quonfig` SDK:
 
 1. **Log levels** -- `should_log?` and the `semantic_logger_filter` are native-only.
 2. **`string_list` configs** -- accessed via `fetch_object_value` and used as `Array<String>`.
-3. **`duration` configs** -- native-only: read them with `provider.client.get_duration` (integer
-   milliseconds). `fetch_float_value` and `fetch_number_value` on a duration config return your
-   default with `TYPE_MISMATCH`.
+3. **`duration` configs** -- `fetch_string_value` returns the stored ISO 8601 text unchanged
+   (`"PT90S"`). For integer milliseconds use `provider.client.get_duration`. `fetch_float_value`
+   and `fetch_number_value` on a duration config return your default with `TYPE_MISMATCH`.
 4. **`bytes` configs** -- not accessible via OpenFeature (no binary type in OF).
 5. **`keys` / raw config inspection** -- native-only via `provider.client`.
 6. **Context keys use dot-notation** -- `"user.email"`, not nested hashes.

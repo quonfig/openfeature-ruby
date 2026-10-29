@@ -105,8 +105,8 @@ class TestTypedGetterContract < Minitest::Test
   end
 
   def test_float_on_duration_returns_default
-    # Durations have no OpenFeature read path: use provider.client.get_duration
-    # (integer milliseconds).
+    # A duration reads only as its ISO text (fetch_string_value); for integer
+    # milliseconds use provider.client.get_duration.
     assert_type_mismatch(fetch(:float, 'getter.contract.duration', 5.0), 5.0)
   end
 
@@ -222,7 +222,30 @@ class TestTypedGetterContract < Minitest::Test
     end
   end
 
-  # ---- duration: native-only ------------------------------------------------
+  # ---- duration: ISO text through fetch_string_value (qfg-177f) ------------
+
+  def test_string_on_duration_returns_stored_iso_text
+    assert_resolves(fetch(:string, 'getter.contract.duration', 'PT0S'), 'PT30S')
+  end
+
+  def test_string_on_env_var_duration_returns_env_text
+    with_env('QUONFIG_ITD_DURATION_PT1_5S', 'PT1.5S') do
+      assert_resolves(fetch(:string, 'provided.duration.PT1.5S', 'PT0S'), 'PT1.5S')
+    end
+  end
+
+  def test_string_on_malformed_env_var_duration_is_parse_error
+    with_env('QUONFIG_ITD_DURATION_PT1_5S', '30s') do
+      assert_parse_error(fetch(:string, 'provided.duration.PT1.5S', 'PT0S'), 'PT0S')
+    end
+  end
+
+  def test_string_on_weighted_duration_returns_variant_iso_text
+    details = fetch(:string, 'weighted.variant.duration', 'PT0S')
+    assert_equal 'PT90S', details.value
+    assert_equal Reason::SPLIT, details.reason
+    assert_nil details.error_code
+  end
 
   def test_duration_reads_through_native_client
     # sdk-ruby's get_duration returns integer milliseconds.
