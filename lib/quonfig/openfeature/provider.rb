@@ -80,7 +80,12 @@ module Quonfig
         'string_list' => :get_string_list_details,
         'json' => :get_json_details
       }.freeze
-      private_constant :READABLE_VALUE_TYPES, :NATIVE_DETAILS_GETTER
+      # sdk-ruby's error code for a value that did not parse (a malformed
+      # stored value or ENV_VAR value, qfg-wg1n). Matched as a string: the
+      # quonfig floor (2.1.0) defines no constant for it and never emits it,
+      # so with that SDK the TYPE_MISMATCH re-read in #malformed? still applies.
+      SDK_PARSE_ERROR = 'PARSE_ERROR'
+      private_constant :READABLE_VALUE_TYPES, :NATIVE_DETAILS_GETTER, :SDK_PARSE_ERROR
 
       attr_reader :metadata, :targeting_key_mapping
 
@@ -293,7 +298,8 @@ module Quonfig
       # Map a Quonfig::EvaluationDetails to the OpenFeature ResolutionDetails
       # the SDK consumes. The Quonfig SDK's *_details methods don't raise, so
       # this is a pure mapping layer. +parse_error+ reports an ERROR as
-      # PARSE_ERROR (see #malformed?).
+      # PARSE_ERROR (see #malformed?); an SDK PARSE_ERROR passes straight
+      # through in #map_error_code.
       def to_resolution(details, default_value, parse_error: false)
         variant = details.variant
         flag_metadata = details.flag_metadata || {}
@@ -338,6 +344,7 @@ module Quonfig
         when ::Quonfig::EvaluationDetails::ERROR_FLAG_NOT_FOUND then ErrorCode::FLAG_NOT_FOUND
         when ::Quonfig::EvaluationDetails::ERROR_TYPE_MISMATCH  then ErrorCode::TYPE_MISMATCH
         when ::Quonfig::EvaluationDetails::ERROR_PROVIDER_NOT_READY then ErrorCode::PROVIDER_NOT_READY
+        when SDK_PARSE_ERROR then ErrorCode::PARSE_ERROR
         else ErrorCode::GENERAL
         end
       end

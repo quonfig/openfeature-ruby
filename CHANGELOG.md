@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.3.0 - 2026-10-29
+
+When sdk-ruby reports error code `PARSE_ERROR` for a value that did not parse (qfg-wg1n), the
+provider now returns it as OpenFeature `PARSE_ERROR` in one read: your default, reason `ERROR`, and
+the SDK's message, variant and flag metadata. Before, an SDK `PARSE_ERROR` came back as `GENERAL`.
+
+Nothing changes with the sdk-ruby you run today. sdk-ruby 2.1.0 reports a malformed value as
+`TYPE_MISMATCH`, and the provider still tells the two apart as in 2.1.0: it checks the stored
+`valueType` and reads the config again with the getter for that type. The `quonfig` floor stays
+`>= 2.1.0`.
+
 ## 2.2.0 - 2026-10-29
 
 `fetch_string_value` on a `duration` config returns its stored ISO 8601 text again (reason
