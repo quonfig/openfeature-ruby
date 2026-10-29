@@ -1,7 +1,7 @@
 PATH
   remote: ../sdk-ruby
   specs:
-    quonfig (2.0.0)
+    quonfig (2.1.0)
       activesupport (>= 4)
       concurrent-ruby (~> 1.0, >= 1.0.5)
       faraday (>= 1.0)
@@ -12,7 +12,7 @@ PATH
   specs:
     quonfig-openfeature (2.2.0)
       openfeature-sdk (>= 0.5)
-      quonfig (>= 2.0.0)
+      quonfig (>= 2.1.0)
 
 GEM
   remote: https://rubygems.org/
