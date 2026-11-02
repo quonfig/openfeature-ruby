@@ -80,3 +80,8 @@ Naming/MethodName:
 # we don't share.
 Gemspec/DevelopmentDependencies:
   Enabled: false
+
+# Keep explicit argument forwarding (`**kwargs`). With the Ruby 3.2 floor
+# this cop would rewrite it to anonymous forwarding (`**`), which buys nothing.
+Style/ArgumentsForwarding:
+  UseAnonymousForwarding: false
