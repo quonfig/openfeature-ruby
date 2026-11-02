@@ -20,6 +20,9 @@ updates:
           - minor
           - patch
 
+  # Dependabot can only fetch path gems inside this repo, so the committed
+  # Gemfile.lock must not carry the ../sdk-ruby PATH source (see Gemfile and
+  # the CI lockfile guard).
   - package-ecosystem: bundler
     directory: "/"
     schedule:
