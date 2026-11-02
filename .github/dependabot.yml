@@ -23,6 +23,9 @@ updates:
   # Dependabot can only fetch path gems inside this repo, so the committed
   # Gemfile.lock must not carry the ../sdk-ruby PATH source (see Gemfile and
   # the CI lockfile guard).
+  # Dependabot resolves bundler updates under the LOWEST Ruby the gemspec's
+  # required_ruby_version allows (it ignores .tool-versions/.ruby-version),
+  # so keep that floor at or above what the locked gems need.
   - package-ecosystem: bundler
     directory: "/"
     schedule:
