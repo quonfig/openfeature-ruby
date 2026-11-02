@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+The gem now requires Ruby 3.2 or newer (`required_ruby_version >= 3.2`; it was `>= 3.0`). Ruby 3.0
+could not install it anyway, because `openfeature-sdk` needs Ruby 3.1 or newer. Ruby 3.1 reached end
+of life in March 2025, and CI tests on 3.2. Raising the floor also lets Dependabot resolve this
+repo's lockfile, since it resolves under the lowest Ruby the gemspec allows.
+
 ## 2.3.0 - 2026-10-29
 
 When sdk-ruby reports error code `PARSE_ERROR` for a value that did not parse (qfg-wg1n), the
