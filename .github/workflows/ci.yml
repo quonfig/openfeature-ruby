@@ -36,7 +36,7 @@ jobs:
       - name: Committed Gemfile.lock has no out-of-repo PATH source
         working-directory: openfeature-ruby
         run: |
-          if grep -nE '^  remote: \.\./' Gemfile.lock; then
+          if grep -nE '^  remote: (\.\.|/)' Gemfile.lock; then
             echo "Gemfile.lock was generated with QUONFIG_SDK_RUBY_PATH set; regenerate it without." >&2
             exit 1
           fi
