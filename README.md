@@ -180,6 +180,7 @@ bundle install
 bundle exec rake test
 ```
 
-The development `Gemfile` references the sibling `../sdk-ruby/` checkout via a
-`path:` reference; downstream consumers depend on the `quonfig` gem from
-RubyGems.
+By default the `Gemfile` resolves the `quonfig` gem from RubyGems. To build
+against a local sdk-ruby checkout, as CI does, set `QUONFIG_SDK_RUBY_PATH`
+(for example `QUONFIG_SDK_RUBY_PATH=../sdk-ruby bundle install`), and don't
+commit the `Gemfile.lock` that produces.
