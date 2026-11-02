@@ -11,7 +11,7 @@ if (sdk_ruby_path = ENV.fetch('QUONFIG_SDK_RUBY_PATH', nil))
 end
 
 group :development do
-  gem 'rubocop', '~> 1.86'
+  gem 'rubocop', '~> 1.92'
 end
 
 gemspec
