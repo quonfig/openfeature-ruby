@@ -168,7 +168,7 @@ layout the integration test suite uses. No network or SDK key is required.
 ```ruby
 provider = Quonfig::OpenFeature::Provider.new(
   datadir:     '/path/to/workspace',
-  environment: 'Production',
+  environment: 'production',
   enable_sse:  false
 )
 ```
