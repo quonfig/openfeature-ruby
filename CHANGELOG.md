@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 2.4.0 - 2026-11-12
+
+Requires quonfig (sdk-ruby) 2.2.0 or newer; the floor was `>= 2.1.0` (qfg-ln7d). sdk-ruby 2.2.0 is
+the first release whose `*_details` and `evaluate_details` report a value that cannot be parsed as
+`PARSE_ERROR` (qfg-wg1n), so the provider now maps the SDK's error code as-is:
+
+- A malformed stored or ENV_VAR value comes back as OpenFeature `PARSE_ERROR` from the SDK in one
+  read, as before: your default, reason `ERROR`, and the SDK's message, variant and flag metadata.
+- The workaround for older SDKs is gone. On a `TYPE_MISMATCH` the provider no longer checks the
+  stored `valueType` and reads the config a second time to tell a malformed value from a wrong-type
+  read. An SDK `TYPE_MISMATCH` is now always OpenFeature `TYPE_MISMATCH`.
+
+What you get for each case is unchanged from 2.3.0 on sdk-ruby 2.2.0, and a `TYPE_MISMATCH` read is one SDK call
+instead of two. This is a minor release because a runtime dependency floor moved.
 
 The gem now requires Ruby 3.2 or newer (`required_ruby_version >= 3.2`; it was `>= 3.0`). Ruby 3.0
 could not install it anyway, because `openfeature-sdk` needs Ruby 3.1 or newer. Ruby 3.1 reached end

@@ -2,8 +2,10 @@
 
 # An sdk-ruby details result with error code PARSE_ERROR (a malformed stored
 # value or ENV_VAR value, qfg-wg1n) passes straight through as the OpenFeature
-# PARSE_ERROR, with no second read. Released sdk-ruby (<= 2.1.0) reports these
-# as TYPE_MISMATCH; that path keeps the stored-valueType re-read (qfg-9xsl).
+# PARSE_ERROR, with no second read. quonfig >= 2.2.0 tells a malformed value
+# (PARSE_ERROR) from a wrong-type read (TYPE_MISMATCH) itself, so the provider
+# maps the SDK's code as-is: an SDK TYPE_MISMATCH stays TYPE_MISMATCH, with no
+# stored-valueType re-read (qfg-ln7d).
 require 'test_helper'
 
 class TestParseErrorPassthrough < Minitest::Test
@@ -13,10 +15,11 @@ class TestParseErrorPassthrough < Minitest::Test
   Details   = ::Quonfig::EvaluationDetails
 
   KEY = 'malformed.key'
-  SDK_PARSE_ERROR = 'PARSE_ERROR'
+  SDK_PARSE_ERROR = Details::ERROR_PARSE_ERROR
 
-  # A client double whose every details read reports PARSE_ERROR. It records
-  # each read so a test can pin that the provider does not re-read.
+  # A client double whose every details read reports +error_code+ (PARSE_ERROR
+  # by default). It records each read so a test can pin that the provider
+  # does not re-read.
   class ParseErrorClient
     Store = Struct.new(:config) do
       def get(_key)
@@ -26,7 +29,8 @@ class TestParseErrorPassthrough < Minitest::Test
 
     attr_reader :calls, :store
 
-    def initialize(value_type)
+    def initialize(value_type, error_code = SDK_PARSE_ERROR)
+      @error_code = error_code
       @calls = []
       @store = Store.new({ 'key' => KEY, 'valueType' => value_type })
     end
@@ -35,7 +39,7 @@ class TestParseErrorPassthrough < Minitest::Test
       return super unless name.to_s.end_with?('_details')
 
       @calls << [name, *args]
-      Details.new(value: nil, reason: Details::REASON_ERROR, error_code: SDK_PARSE_ERROR,
+      Details.new(value: nil, reason: Details::REASON_ERROR, error_code: @error_code,
                   error_message: "value for #{KEY} cannot be parsed", variant: 'v1',
                   flag_metadata: { 'config_type' => 'config' })
     end
@@ -45,8 +49,8 @@ class TestParseErrorPassthrough < Minitest::Test
     end
   end
 
-  def fetch(method, value_type, default)
-    client = ParseErrorClient.new(value_type)
+  def fetch(method, value_type, default, error_code = SDK_PARSE_ERROR)
+    client = ParseErrorClient.new(value_type, error_code)
     provider = Provider.new(client: client)
     provider.init
     [provider.public_send(method, flag_key: KEY, default_value: default), client]
@@ -105,5 +109,31 @@ class TestParseErrorPassthrough < Minitest::Test
     resolution, = fetch(:fetch_integer_value, 'int', 7)
     assert_equal 'v1', resolution.variant
     assert_equal({ 'config_type' => 'config' }, resolution.flag_metadata)
+  end
+
+  # The SDK's TYPE_MISMATCH is mapped as-is, even on a config whose stored
+  # type the fetch method can read: no re-read to guess at PARSE_ERROR.
+  def test_integer_type_mismatch_maps_straight_through_with_one_read
+    resolution, client = fetch(:fetch_integer_value, 'int', 7, Details::ERROR_TYPE_MISMATCH)
+    assert_equal ErrorCode::TYPE_MISMATCH, resolution.error_code
+    assert_equal [[:get_int_details, KEY]], client.calls
+  end
+
+  def test_boolean_type_mismatch_maps_straight_through_with_one_read
+    resolution, client = fetch(:fetch_boolean_value, 'bool', false, Details::ERROR_TYPE_MISMATCH)
+    assert_equal ErrorCode::TYPE_MISMATCH, resolution.error_code
+    assert_equal [[:get_bool_details, KEY]], client.calls
+  end
+
+  def test_string_type_mismatch_maps_straight_through_with_one_read
+    resolution, client = fetch(:fetch_string_value, 'string', 'dflt', Details::ERROR_TYPE_MISMATCH)
+    assert_equal ErrorCode::TYPE_MISMATCH, resolution.error_code
+    assert_equal [[:get_string_details, KEY]], client.calls
+  end
+
+  def test_duration_string_type_mismatch_maps_straight_through
+    resolution, client = fetch(:fetch_string_value, 'duration', 'PT0S', Details::ERROR_TYPE_MISMATCH)
+    assert_equal ErrorCode::TYPE_MISMATCH, resolution.error_code
+    assert_equal [[:evaluate_details, KEY]], client.calls
   end
 end

@@ -93,10 +93,10 @@ class TestDurationString < Minitest::Test
   end
 
   def test_malformed_env_var_duration_is_parse_error
-    # evaluate_details reports an ENV_VAR that does not parse as its type as
-    # ERROR / TYPE_MISMATCH; on a duration config that is a malformed value.
+    # quonfig >= 2.2.0: evaluate_details reports an ENV_VAR that does not
+    # parse as its type as ERROR / PARSE_ERROR, mapped straight through.
     env_error = Details.new(value: nil, reason: Details::REASON_ERROR,
-                            error_code: Details::ERROR_TYPE_MISMATCH, error_message: 'bad env')
+                            error_code: Details::ERROR_PARSE_ERROR, error_message: 'bad env')
     details, client = read(env_error)
     assert_equal 'PT0S', details.value
     assert_equal ErrorCode::PARSE_ERROR, details.error_code
@@ -123,9 +123,11 @@ class TestDurationString < Minitest::Test
     refute_match(/raw_value/, source)
   end
 
-  def test_gemspec_requires_quonfig_2_1
+  # 2.2.0 is the first quonfig whose details report PARSE_ERROR (qfg-wg1n);
+  # the provider maps the SDK's error code as-is (qfg-ln7d).
+  def test_gemspec_requires_quonfig_2_2
     spec = Gem::Specification.load(File.expand_path('../quonfig-openfeature.gemspec', __dir__))
     dep = spec.runtime_dependencies.find { |d| d.name == 'quonfig' }
-    assert_equal Gem::Requirement.new('>= 2.1.0'), dep.requirement
+    assert_equal Gem::Requirement.new('>= 2.2.0'), dep.requirement
   end
 end

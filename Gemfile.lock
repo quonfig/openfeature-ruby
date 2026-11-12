@@ -1,9 +1,9 @@
 PATH
   remote: .
   specs:
-    quonfig-openfeature (2.3.0)
+    quonfig-openfeature (2.4.0)
       openfeature-sdk (>= 0.5)
-      quonfig (>= 2.1.0)
+      quonfig (>= 2.2.0)
 
 GEM
   remote: https://rubygems.org/
@@ -63,7 +63,7 @@ GEM
       ast (~> 2.4.1)
       racc
     prism (1.9.0)
-    quonfig (2.1.0)
+    quonfig (2.2.0)
       activesupport (>= 4)
       concurrent-ruby (~> 1.0, >= 1.0.5)
       faraday (>= 1.0)
